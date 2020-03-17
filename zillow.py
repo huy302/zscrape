@@ -50,8 +50,7 @@ def scrape_info():
 
 
 # ================== main code ==================
-data = scrape_info()
-df = pd.DataFrame(data, columns =['code', 'link', 'price', 'bed', 'bath', 'sqft'])
-df.to_csv("zillow.csv")
-
-
+if __name__ == "__main__":
+    data = scrape_info()
+    df = pd.DataFrame(data, columns =['code', 'link', 'price', 'bed', 'bath', 'sqft'])
+    df.to_csv("zillow.csv")
