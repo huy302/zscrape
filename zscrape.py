@@ -6,8 +6,6 @@ import tqdm
 import html
 import unicodedata
 import re
-from geopy.geocoders import Nominatim
-from geopy.extra.rate_limiter import RateLimiter
 import time
 from joblib import Parallel, delayed
 
@@ -21,7 +19,10 @@ def strip_content(input_str):
 
 def scrape_file(html_file, home_type):
     if home_type == 'For Sale':
-        return scrape_for_sale(html_file, home_type)
+        try:
+            return scrape_for_sale(html_file, home_type)
+        except:
+            return {}
     else:
         try:
             return scrape_sold(html_file, home_type)
@@ -260,7 +261,7 @@ def scrape_for_sale(html_file, home_type):
 
 if __name__ == '__main__':
     
-    regions = ['Sugar Land']
+    regions = ['Sugar Land', 'Med Center', 'Missouri City']
     home_types = ['For Sale', 'Sold']
     col_list = ['zpid']
 

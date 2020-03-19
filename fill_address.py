@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from geopy.geocoders import Nominatim
-from geopy.extra.rate_limiter import RateLimiter
+# from geopy.geocoders import Nominatim
+# from geopy.extra.rate_limiter import RateLimiter
 import requests
 import time
 import tqdm
@@ -15,7 +15,7 @@ def get_lat_lon(address):
     return geo_data["results"][0]["geometry"]["location"]["lat"], geo_data["results"][0]["geometry"]["location"]["lng"]
 
 # read data
-df = pd.read_csv('data_w_loc.csv', index_col=['zpid'])
+df = pd.read_csv('data.csv', index_col=['zpid'])
 df_missing_loc = df[pd.isnull(df['lat'])]
 
 # # get lat lon
@@ -44,4 +44,4 @@ for idx, row in tqdm.tqdm(list(df.iterrows())):
                 # ignore
                 pass
 
-df.to_csv('data_w_loc.csv')
+df.to_csv('data.csv')
