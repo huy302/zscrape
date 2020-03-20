@@ -33,12 +33,12 @@ df_missing_loc = df[pd.isnull(df['lat'])]
 
 for idx, row in tqdm.tqdm(list(df.iterrows())):
     if pd.isnull(row['lat']) or pd.isnull(row['lon']):
-        for trial in range(5): # retry 5 times
+        for trial in range(10): # retry 10 times
             try:
                 lat, lon = get_lat_lon(row['address full'].replace("#", "APT"))
                 df.loc[idx, 'lat'] = lat
                 df.loc[idx, 'lon'] = lon
-                time.sleep(1)
+                time.sleep(0.05 * (trial + 1))
                 break
             except:
                 # ignore

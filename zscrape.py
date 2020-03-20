@@ -8,6 +8,11 @@ import unicodedata
 import re
 import time
 from joblib import Parallel, delayed
+import requests
+import xmltodict
+
+zwsid = 'X1-ZWz1hc66db5h57_39zrb'
+# zwsid = 'X1-ZWz1horrl3bksr_6jziz'
 
 def strip_content(input_str):
     input_str = unicodedata.normalize('NFKD', input_str)
@@ -17,27 +22,27 @@ def strip_content(input_str):
     else:
         return float(stripped_str)
 
-def scrape_file(html_file, home_type):
+def scrape_file(html_file, home_type, region):
     if home_type == 'For Sale':
         try:
-            return scrape_for_sale(html_file, home_type)
+            return scrape_for_sale(html_file, home_type, region)
         except:
             return {}
     else:
         try:
-            return scrape_sold(html_file, home_type)
+            return scrape_sold(html_file, home_type, region)
         except:
             try:
-                return scrape_for_rent(html_file, 'For Rent')
+                return scrape_for_rent(html_file, 'For Rent', region)
             except:
                 return {}
 
-def scrape_sold(html_file, home_type):
+def scrape_sold(html_file, home_type, region):
     with open(html_file, encoding='utf8') as f:
         page = f.read()
     zpid_idx = page.find('_zpid')
     zpid = page[zpid_idx-8:zpid_idx]
-    current_home = { 'zpid' : zpid, 'home type' : home_type }
+    current_home = { 'zpid' : zpid, 'home type' : home_type, 'region' : region }
     soup = bs(page, 'html.parser')
 
     current_home['value'] = strip_content(soup.find('div', class_='status').text)
@@ -81,9 +86,6 @@ def scrape_sold(html_file, home_type):
     #         current_home['zestimate low'] = strip_content(sales_range[0])
     #         current_home['zestimate high'] = strip_content(sales_range[1])
 
-    # extract rent zestimate
-    current_home['rental value'] = strip_content(soup.find('div', class_='zestimate-value').text)
-
     # extract school ratings
     school_cards = soup.find_all('span', class_='gs-rating-number')
     current_home['school 1'] = strip_content(school_cards[0].text)
@@ -95,12 +97,12 @@ def scrape_sold(html_file, home_type):
     current_home['lon'] = None
     return current_home
 
-def scrape_for_rent(html_file, home_type):
+def scrape_for_rent(html_file, home_type, region):
     with open(html_file, encoding='utf8') as f:
         page = f.read()
     zpid_idx = page.find('_zpid')
     zpid = page[zpid_idx-8:zpid_idx]
-    current_home = { 'zpid' : zpid, 'home type' : home_type }
+    current_home = { 'zpid' : zpid, 'home type' : home_type, 'region' : region }
     soup = bs(page, 'html.parser')
 
     current_home['rent value'] = float(soup.find('span', class_='ds-value').text.replace(',','').replace('$',''))
@@ -142,27 +144,27 @@ def scrape_for_rent(html_file, home_type):
         for key in details_keys:
             if key in card.text:
                 current_home[key.lower()] = strip_content(card.text.replace(key, '').replace(':', ''))
-        if 'Estimated sales range' in card.text:
-            sales_range = card.text.replace('Estimated sales range', '').strip().split(' - ')
-            current_home['zestimate low'] = strip_content(sales_range[0])
-            current_home['zestimate high'] = strip_content(sales_range[1])
+        # if 'Estimated sales range' in card.text:
+        #     sales_range = card.text.replace('Estimated sales range', '').strip().split(' - ')
+        #     current_home['zestimate low'] = strip_content(sales_range[0])
+        #     current_home['zestimate high'] = strip_content(sales_range[1])
 
-    # extract zestimate and rent zestimate
-    zestimate_texts = ['Home value', 'Rental value']
-    for text in zestimate_texts:
-        value_card = None
-        for card in soup.find_all('h4', class_='Text-aiai24-0'):
-            if text in card.text:
-                value_card = card
-                break
-        if value_card == None:
-            print(f'Cannot find {text} - {address_text}')
-        else:
-            zestimate_card = value_card.parent.find('p', class_='Text-aiai24-0')
-            if zestimate_card == None:
-                print(f'Cannot find {text} - {address_text}')
-            else:
-                current_home[text.lower()] = strip_content(zestimate_card.text)
+    # # extract zestimate and rent zestimate
+    # zestimate_texts = ['Home value', 'Rental value']
+    # for text in zestimate_texts:
+    #     value_card = None
+    #     for card in soup.find_all('h4', class_='Text-aiai24-0'):
+    #         if text in card.text:
+    #             value_card = card
+    #             break
+    #     if value_card == None:
+    #         print(f'Cannot find {text} - {address_text}')
+    #     else:
+    #         zestimate_card = value_card.parent.find('p', class_='Text-aiai24-0')
+    #         if zestimate_card == None:
+    #             print(f'Cannot find {text} - {address_text}')
+    #         else:
+    #             current_home[text.lower()] = strip_content(zestimate_card.text)
 
     # extract school ratings
     school_cards = soup.find('div', class_='ds-nearby-schools-list').find_all('span', class_='ds-schools-display-rating')
@@ -175,12 +177,12 @@ def scrape_for_rent(html_file, home_type):
     current_home['lon'] = None
     return current_home
 
-def scrape_for_sale(html_file, home_type):
+def scrape_for_sale(html_file, home_type, region):
     with open(html_file, encoding='utf8') as f:
         page = f.read()
     zpid_idx = page.find('_zpid')
     zpid = page[zpid_idx-8:zpid_idx]
-    current_home = { 'zpid' : zpid, 'home type' : home_type }
+    current_home = { 'zpid' : zpid, 'home type' : home_type, 'region' : region }
     soup = bs(page, 'html.parser')
 
     current_home['value'] = float(soup.find('span', class_='ds-value').text.replace(',','').replace('$',''))
@@ -223,27 +225,27 @@ def scrape_for_sale(html_file, home_type):
         for key in details_keys:
             if key in card.text:
                 current_home[key.lower()] = strip_content(card.text.replace(key, '').replace(':', ''))
-        if 'Estimated sales range' in card.text:
-            sales_range = card.text.replace('Estimated sales range', '').strip().split(' - ')
-            current_home['zestimate low'] = strip_content(sales_range[0])
-            current_home['zestimate high'] = strip_content(sales_range[1])
+        # if 'Estimated sales range' in card.text:
+        #     sales_range = card.text.replace('Estimated sales range', '').strip().split(' - ')
+        #     current_home['zestimate low'] = strip_content(sales_range[0])
+        #     current_home['zestimate high'] = strip_content(sales_range[1])
 
-    # extract zestimate and rent zestimate
-    zestimate_texts = ['Home value', 'Rental value']
-    for text in zestimate_texts:
-        value_card = None
-        for card in soup.find_all('h4', class_='Text-aiai24-0'):
-            if text in card.text:
-                value_card = card
-                break
-        if value_card == None:
-            print(f'Cannot find {text} - {address_text}')
-        else:
-            zestimate_card = value_card.parent.find('p', class_='Text-aiai24-0')
-            if zestimate_card == None:
-                print(f'Cannot find {text} - {address_text}')
-            else:
-                current_home[text.lower()] = strip_content(zestimate_card.text)
+    # # extract zestimate and rent zestimate
+    # zestimate_texts = ['Home value', 'Rental value']
+    # for text in zestimate_texts:
+    #     value_card = None
+    #     for card in soup.find_all('h4', class_='Text-aiai24-0'):
+    #         if text in card.text:
+    #             value_card = card
+    #             break
+    #     if value_card == None:
+    #         print(f'Cannot find {text} - {address_text}')
+    #     else:
+    #         zestimate_card = value_card.parent.find('p', class_='Text-aiai24-0')
+    #         if zestimate_card == None:
+    #             print(f'Cannot find {text} - {address_text}')
+    #         else:
+    #             current_home[text.lower()] = strip_content(zestimate_card.text)
 
     current_home['monthly cost'] = strip_content(soup.find('h4', class_='Text-sc-1vuq29o-0').text)
 
@@ -258,11 +260,49 @@ def scrape_for_sale(html_file, home_type):
     current_home['lon'] = None
     return current_home
 
+def add_zillow_api_data(current_home):
+    if 'zpid' not in current_home.keys():
+        return current_home
+    
+    target_url = ('http://www.zillow.com/webservice/GetSearchResults.htm?zws-id={0}&address={1}&citystatezip={2}%2C+{3}&rentzestimate=true').format(zwsid, current_home['address'].replace("#", "APT"), current_home['city'], current_home['state'])
+    response_text = requests.get(target_url).text
+    zillow_data = xmltodict.parse(response_text)
+    result_data = zillow_data['SearchResults:searchresults']['response']['results']['result']
+    if type(result_data) is list: # set result = first result if there are multiple returned results
+        result_data = result_data[0]
+
+    current_home['api lat'] = result_data['address']['latitude']
+    current_home['api lon'] = result_data['address']['longitude']
+    current_home['api link'] = result_data['links']['homedetails']
+    if 'zestimate' in result_data.keys():
+        if '#text' in result_data['zestimate']['amount'].keys():
+            current_home['api zestimate'] = result_data['zestimate']['amount']['#text']
+        if '#text' in result_data['zestimate']['valuationRange']['low'].keys():
+            current_home['api zestimate low'] = result_data['zestimate']['valuationRange']['low']['#text']
+        if '#text' in result_data['zestimate']['valuationRange']['high'].keys():
+            current_home['api zestimate high'] = result_data['zestimate']['valuationRange']['high']['#text']
+    if 'rentzestimate' in result_data.keys():
+        if '#text' in result_data['rentzestimate']['amount'].keys():
+            current_home['api rent zestimate'] = result_data['rentzestimate']['amount']['#text']
+        if '#text' in result_data['rentzestimate']['valuationRange']['low'].keys():
+            current_home['api rent zestimate low'] = result_data['rentzestimate']['valuationRange']['low']['#text']
+        if '#text' in result_data['rentzestimate']['valuationRange']['high'].keys():
+            current_home['api rent zestimate high'] = result_data['rentzestimate']['valuationRange']['high']['#text']
+
+    # this part is so fragile, need over defending
+    if 'localRealEstate' in result_data.keys() and result_data['localRealEstate'] != None:
+        if 'region' in result_data['localRealEstate'].keys():
+            if 'zindexValue' in result_data['localRealEstate']['region'].keys():
+                current_home['api neighborhood index'] = strip_content(result_data['localRealEstate']['region']['zindexValue'])
+
+    time.sleep(0.5)
+    return current_home
 
 if __name__ == '__main__':
     
     regions = ['Sugar Land', 'Med Center', 'Missouri City']
     home_types = ['For Sale', 'Sold']
+    # home_types = ['Sold']
     col_list = ['zpid']
 
     file_list = []
@@ -270,18 +310,24 @@ if __name__ == '__main__':
     for region in regions:
         for home_type in home_types:
             files = glob.glob(f'Homes\\{region}\\{home_type}\\*.html')
-            file_tuples = ((f, home_type) for f in files)
+            file_tuples = ((f, home_type, region) for f in files)
             file_list.extend(file_tuples)
 
     # debug code
     # home_list = [scrape_file(file_list[43][0], file_list[43][1])]
 
-    # # parallel code
-    home_list = Parallel(n_jobs=-1)(delayed(scrape_file)(html_file, home_type) for (html_file, home_type) in tqdm.tqdm(file_list))
+    # parallel code
+    home_list = Parallel(n_jobs=-1)(delayed(scrape_file)(html_file, home_type, region) for (html_file, home_type, region) in tqdm.tqdm(file_list))
+    # add zillow api data, cannot be execute in parallel due to rate limiting
+    print("===== Adding data from zillow api =====")
+    home_list = [add_zillow_api_data(home) for home in tqdm.tqdm(home_list)]
+
     df = pd.DataFrame(home_list)
     df.dropna(subset=['zpid'], inplace=True)
+    print(f'Successfully extracted {df.shape[0]}/{len(home_list)}')
+    df = df.sort_values(by=['zpid'])
     df.to_csv('data.csv', index=False)
-    print(df.head(10))
+    print(df)
 
     pass
     # TODO: 
