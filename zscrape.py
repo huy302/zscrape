@@ -295,7 +295,6 @@ def add_zillow_api_data(current_home):
             if 'zindexValue' in result_data['localRealEstate']['region'].keys():
                 current_home['api neighborhood index'] = strip_content(result_data['localRealEstate']['region']['zindexValue'])
 
-    time.sleep(0.5)
     return current_home
 
 if __name__ == '__main__':
@@ -320,7 +319,13 @@ if __name__ == '__main__':
     home_list = Parallel(n_jobs=-1)(delayed(scrape_file)(html_file, home_type, region) for (html_file, home_type, region) in tqdm.tqdm(file_list))
     # add zillow api data, cannot be execute in parallel due to rate limiting
     print("===== Adding data from zillow api =====")
-    home_list = [add_zillow_api_data(home) for home in tqdm.tqdm(home_list)]
+    for i in tqdm.tqdm(range(len(home_list))):
+        time.sleep(0.5)
+        try:
+            home_list[i] = add_zillow_api_data(home_list[i])
+        except: # ignore error in pulling data from api, if any
+            continue
+    # home_list = [add_zillow_api_data(home) for home in tqdm.tqdm(home_list)]
 
     df = pd.DataFrame(home_list)
     df.dropna(subset=['zpid'], inplace=True)
